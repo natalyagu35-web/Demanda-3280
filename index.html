@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demanda Inducida 3280 - Hospital San Antonio E.S.E.</title>
+    <!-- Configuración para App Móvil (PWA) -->
+    <meta name="theme-color" content="#1e1b4b">
+    
+    <!-- Tailwind CSS & Chart.js -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-100 text-slate-800">
+
+    <!-- Encabezado Principal -->
+    <header class="bg-indigo-950 text-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col md:flex-row justify-between items-center gap-2">
+            <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-hospital-user text-2xl text-indigo-300"></i>
+                <div>
+                    <h1 class="font-bold text-base leading-tight">HOSPITAL SAN ANTONIO E.S.E. DE AMBALEMA</h1>
+                    <p class="text-[11px] text-indigo-200">Gestión de Demanda Inducida (Res. 3280 de 2018)</p>
+                </div>
+            </div>
+            
+            <!-- Botones de Sincronización (Exportar / Importar) -->
+            <div class="flex items-center gap-2">
+                <button onclick="exportarDatos()" class="bg-indigo-800 hover:bg-indigo-700 text-xs px-3 py-1.5 rounded border border-indigo-600 flex items-center gap-1 transition">
+                    <i class="fa-solid fa-download"></i> Exportar Datos
+                </button>
+                <label class="bg-emerald-700 hover:bg-emerald-600 text-xs px-3 py-1.5 rounded border border-emerald-500 flex items-center gap-1 cursor-pointer transition">
+                    <i class="fa-solid fa-upload"></i> Importar Datos
+                    <input type="file" id="importFile" onchange="importarDatos(event)" accept=".json" class="hidden">
+                </label>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 py-6">
+
+        <!-- Panel de Tarjetas KPIs -->
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 border-l-4 border-l-indigo-600">
+                <p class="text-[10px] font-bold text-slate-400 uppercase">Efectividad (ECDI)</p>
+                <div class="flex items-baseline space-x-1 mt-1">
+                    <span id="kpi-ecdi" class="text-2xl font-extrabold text-indigo-900">0%</span>
+                    <span class="text-[10px] text-emerald-600 font-semibold">&ge; 85%</span>
+                </div>
+            </div>
+
+            <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 border-l-4 border-l-amber-500">
+                <p class="text-[10px] font-bold text-slate-400 uppercase">No Gestionada (PDNG)</p>
+                <div class="flex items-baseline space-x-1 mt-1">
+                    <span id="kpi-pdng" class="text-2xl font-extrabold text-amber-600">0%</span>
+                    <span class="text-[10px] text-amber-600 font-semibold">&le; 10%</span>
+                </div>
+            </div>
+
+            <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 border-l-4 border-l-blue-500">
+                <p class="text-[10px] font-bold text-slate-400 uppercase">Total Captados</p>
+                <div class="flex items-baseline space-x-1 mt-1">
+                    <span id="kpi-total" class="text-2xl font-extrabold text-slate-800">0</span>
+                    <span class="text-[10px] text-slate-400">Pacientes</span>
+                </div>
+            </div>
+
+            <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 border-l-4 border-l-rose-500">
+                <p class="text-[10px] font-bold text-slate-400 uppercase">Alertas / Inasistentes</p>
+                <div class="flex items-baseline space-x-1 mt-1">
+                    <span id="kpi-alertas" class="text-2xl font-extrabold text-rose-600">0</span>
+                    <span class="text-[10px] text-rose-500 font-semibold">Casos</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Pestañas -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 mb-6 overflow-hidden">
+            <div class="flex border-b border-slate-200 bg-slate-50 text-xs font-bold">
+                <button onclick="switchTab('registro')" id="tab-registro" class="flex-1 py-3 px-2 border-b-2 border-indigo-600 text-indigo-600 flex justify-center items-center gap-1">
+                    <i class="fa-solid fa-list-check"></i><span>Matriz Operativa</span>
+                </button>
+                <button onclick="switchTab('dashboard')" id="tab-dashboard" class="flex-1 py-3 px-2 border-b-2 border-transparent text-slate-500 flex justify-center items-center gap-1">
+                    <i class="fa-solid fa-chart-pie"></i><span>Tablero & KPIs</span>
+                </button>
+                <button onclick="switchTab('plan')" id="tab-plan" class="flex-1 py-3 px-2 border-b-2 border-transparent text-slate-500 flex justify-center items-center gap-1">
+                    <i class="fa-solid fa-bullseye"></i><span>Plan de Mejora</span>
+                </button>
+            </div>
+
+            <div class="p-4">
+                <!-- PESTAÑA 1: REGISTRO -->
+                <div id="sec-registro" class="space-y-4">
+                    <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                        <h3 class="font-bold text-slate-700 mb-3 text-xs flex items-center gap-1">
+                            <i class="fa-solid fa-user-plus text-indigo-600"></i> Registrar Captación de Usuario
+                        </h3>
+                        <form id="form-captacion" onsubmit="agregarUsuario(event)" class="grid grid-cols-1 md:grid-cols-4 gap-2 text-xs">
+                            <input type="text" id="nombre" required placeholder="Nombre Completo" class="p-2 border rounded">
+                            <input type="text" id="doc" required placeholder="Documento de Identidad" class="p-2 border rounded">
+                            <select id="ciclo" class="p-2 border rounded">
+                                <option>Primera Infancia (0-5 años)</option>
+                                <option>Infancia (6-11 años)</option>
+                                <option>Adolescencia (12-17 años)</option>
+                                <option>Juventud (18-28 años)</option>
+                                <option selected>Adultez (29-59 años)</option>
+                                <option>Vejez (60+ años)</option>
+                            </select>
+                            <select id="origen" class="p-2 border rounded">
+                                <option>Equipos Básicos de Salud (EBS)</option>
+                                <option>Consulta Externa</option>
+                            </select>
+                            <input type="text" id="servicio" required placeholder="Servicio / Ruta Canalizada" class="p-2 border rounded md:col-span-2">
+                            <input type="date" id="fCaptacion" required class="p-2 border rounded">
+                            <select id="estado" class="p-2 border rounded">
+                                <option value="Atendido">Atendido</option>
+                                <option value="Pendiente">Pendiente</option>
+                                <option value="Inasistente">Inasistente</option>
+                                <option value="Sin Agenda">Sin Agenda</option>
+                            </select>
+                            <button type="submit" class="md:col-span-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded transition shadow mt-1">
+                                Guardar Registro
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Tabla de Datos -->
+                    <div class="overflow-x-auto rounded-lg border border-slate-200">
+                        <table class="w-full text-xs text-left text-slate-600">
+                            <thead class="bg-indigo-950 text-white uppercase text-[10px]">
+                                <tr>
+                                    <th class="p-2">Documento</th>
+                                    <th class="p-2">Nombre</th>
+                                    <th class="p-2">Ciclo Vital</th>
+                                    <th class="p-2">Origen</th>
+                                    <th class="p-2">Servicio</th>
+                                    <th class="p-2">Fecha</th>
+                                    <th class="p-2">Estado</th>
+                                    <th class="p-2 text-center">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-body" class="divide-y divide-slate-200 bg-white"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- PESTAÑA 2: DASHBOARD -->
+                <div id="sec-dashboard" class="hidden space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                            <h4 class="font-bold text-slate-700 mb-2 text-xs">Estado de Captaciones</h4>
+                            <div class="h-56 flex justify-center"><canvas id="chartEstados"></canvas></div>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                            <h4 class="font-bold text-slate-700 mb-2 text-xs">Origen de Captación</h4>
+                            <div class="h-56 flex justify-center"><canvas id="chartOrigen"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PESTAÑA 3: PLAN DE MEJORA -->
+                <div id="sec-plan" class="hidden space-y-4 text-xs">
+                    <div class="bg-indigo-50 border-l-4 border-indigo-600 p-3 rounded">
+                        <h3 class="font-bold text-indigo-900">Plan de Trabajo - Prácticas UNIMINUTO</h3>
+                        <p class="text-slate-600 text-[11px]">Estudiante: Laura Natali Ramírez Agudelo | Tutora: Cindy Tatiana López Bonilla</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div class="bg-white p-3 rounded border">
+                            <h5 class="font-bold text-indigo-800 border-b pb-1 mb-1">Diagnóstico (S1-S6)</h5>
+                            <p class="text-slate-600 text-[11px]">Levantamiento SIPOC del proceso de demanda inducida entre Consulta Externa y EBS.</p>
+                        </div>
+                        <div class="bg-white p-3 rounded border">
+                            <h5 class="font-bold text-indigo-800 border-b pb-1 mb-1">Análisis (S7-S12)</h5>
+                            <p class="text-slate-600 text-[11px]">Medición de indicadores ECDI y PDNG, priorizando cuellos de botella en la atención.</p>
+                        </div>
+                        <div class="bg-white p-3 rounded border">
+                            <h5 class="font-bold text-indigo-800 border-b pb-1 mb-1">Propuesta (S13-S16)</h5>
+                            <p class="text-slate-600 text-[11px]">Entrega de matriz operativa e informe final de recomendaciones institucionales.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Cargar datos guardados previamente o semilla
+        let usuarios = JSON.parse(localStorage.getItem('demanda_3280_data')) || [
+            { doc: "1070984512", nombre: "María Carmen Rodríguez", ciclo: "Adultez (29-59 años)", origen: "Equipos Básicos de Salud (EBS)", servicio: "Ruta Materno Perinatal", fecha: "2026-08-11", estado: "Atendido" },
+            { doc: "1104875210", nombre: "Juan David Morales", ciclo: "Infancia (6-11 años)", origen: "Consulta Externa", servicio: "Valoración Integral Infancia", fecha: "2026-08-11", estado: "Atendido" },
+            { doc: "65412890", nombre: "Ana Lucía Gómez", ciclo: "Vejez (60+ años)", origen: "Equipos Básicos de Salud (EBS)", servicio: "Ruta Cardiovasc / Riesgo", fecha: "2026-08-12", estado: "Inasistente" }
+        ];
+
+        let chartEstadosInstance = null;
+        let chartOrigenInstance = null;
+
+        function guardarEnLocalStorage() {
+            localStorage.setItem('demanda_3280_data', JSON.stringify(usuarios));
+        }
+
+        function renderTabla() {
+            const tbody = document.getElementById('tabla-body');
+            tbody.innerHTML = '';
+
+            usuarios.forEach((u, index) => {
+                let badgeColor = "bg-slate-100 text-slate-800";
+                if(u.estado === "Atendido") badgeColor = "bg-emerald-100 text-emerald-800 font-bold";
+                if(u.estado === "Inasistente") badgeColor = "bg-rose-100 text-rose-800 font-bold";
+                if(u.estado === "Pendiente") badgeColor = "bg-amber-100 text-amber-800 font-bold";
+                if(u.estado === "Sin Agenda") badgeColor = "bg-purple-100 text-purple-800 font-bold";
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="p-2 font-semibold">${u.doc}</td>
+                        <td class="p-2">${u.nombre}</td>
+                        <td class="p-2">${u.ciclo}</td>
+                        <td class="p-2">${u.origen}</td>
+                        <td class="p-2">${u.servicio}</td>
+                        <td class="p-2">${u.fecha}</td>
+                        <td class="p-2"><span class="px-2 py-0.5 rounded-full text-[10px] ${badgeColor}">${u.estado}</span></td>
+                        <td class="p-2 text-center">
+                            <button onclick="eliminarUsuario(${index})" class="text-rose-500 hover:text-rose-700">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            guardarEnLocalStorage();
+            actualizarKPIs();
+        }
+
+        function agregarUsuario(e) {
+            e.preventDefault();
+            const nuevo = {
+                nombre: document.getElementById('nombre').value,
+                doc: document.getElementById('doc').value,
+                ciclo: document.getElementById('ciclo').value,
+                origen: document.getElementById('origen').value,
+                servicio: document.getElementById('servicio').value,
+                fecha: document.getElementById('fCaptacion').value,
+                estado: document.getElementById('estado').value
+            };
+            usuarios.push(nuevo);
+            renderTabla();
+            document.getElementById('form-captacion').reset();
+        }
+
+        function eliminarUsuario(index) {
+            usuarios.splice(index, 1);
+            renderTabla();
+        }
+
+        function actualizarKPIs() {
+            const total = usuarios.length;
+            if (total === 0) {
+                document.getElementById('kpi-ecdi').innerText = "0%";
+                document.getElementById('kpi-pdng').innerText = "0%";
+                document.getElementById('kpi-total').innerText = "0";
+                document.getElementById('kpi-alertas').innerText = "0";
+                return;
+            }
+
+            const atendidos = usuarios.filter(u => u.estado === "Atendido").length;
+            const noGestionados = usuarios.filter(u => u.estado !== "Atendido").length;
+            const alertas = usuarios.filter(u => u.estado === "Inasistente" || u.estado === "Sin Agenda").length;
+
+            document.getElementById('kpi-ecdi').innerText = Math.round((atendidos / total) * 100) + "%";
+            document.getElementById('kpi-pdng').innerText = Math.round((noGestionados / total) * 100) + "%";
+            document.getElementById('kpi-total').innerText = total;
+            document.getElementById('kpi-alertas').innerText = alertas;
+
+            actualizarGraficos();
+        }
+
+        function actualizarGraficos() {
+            const estadosCount = { Atendido: 0, Inasistente: 0, Pendiente: 0, 'Sin Agenda': 0 };
+            const origenCount = { 'Equipos Básicos de Salud (EBS)': 0, 'Consulta Externa': 0 };
+
+            usuarios.forEach(u => {
+                if(estadosCount[u.estado] !== undefined) estadosCount[u.estado]++;
+                if(origenCount[u.origen] !== undefined) origenCount[u.origen]++;
+            });
+
+            if (chartEstadosInstance) chartEstadosInstance.destroy();
+            if (chartOrigenInstance) chartOrigenInstance.destroy();
+
+            const ctx1 = document.getElementById('chartEstados').getContext('2d');
+            chartEstadosInstance = new Chart(ctx1, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(estadosCount),
+                    datasets: [{ data: Object.values(estadosCount), backgroundColor: ['#10b981', '#f43f5e', '#f59e0b', '#a855f7'] }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            const ctx2 = document.getElementById('chartOrigen').getContext('2d');
+            chartOrigenInstance = new Chart(ctx2, {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(origenCount),
+                    datasets: [{ data: Object.values(origenCount), backgroundColor: ['#4f46e5', '#06b6d4'] }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function switchTab(tab) {
+            document.getElementById('sec-registro').classList.add('hidden');
+            document.getElementById('sec-dashboard').classList.add('hidden');
+            document.getElementById('sec-plan').classList.add('hidden');
+
+            document.getElementById('tab-registro').className = "flex-1 py-3 px-2 border-b-2 border-transparent text-slate-500 flex justify-center items-center gap-1";
+            document.getElementById('tab-dashboard').className = "flex-1 py-3 px-2 border-b-2 border-transparent text-slate-500 flex justify-center items-center gap-1";
+            document.getElementById('tab-plan').className = "flex-1 py-3 px-2 border-b-2 border-transparent text-slate-500 flex justify-center items-center gap-1";
+
+            document.getElementById(`sec-${tab}`).classList.remove('hidden');
+            document.getElementById(`tab-${tab}`).className = "flex-1 py-3 px-2 border-b-2 border-indigo-600 text-indigo-600 flex justify-center items-center gap-1";
+        }
+
+        // EXPORTAR E IMPORTAR DATOS
+        function exportarDatos() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(usuarios, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `demanda_inducida_backup_${new Date().toISOString().slice(0,10)}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        function importarDatos(event) {
+            const fileReader = new FileReader();
+            fileReader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (Array.isArray(importedData)) {
+                        usuarios = importedData;
+                        renderTabla();
+                        alert("¡Datos importados con éxito!");
+                    } else {
+                        alert("El archivo no tiene el formato correcto.");
+                    }
+                } catch (err) {
+                    alert("Error al leer el archivo.");
+                }
+            };
+            fileReader.readAsText(event.target.files[0]);
+        }
+
+        window.onload = function() { renderTabla(); };
+    </script>
+</body>
+</html>
