@@ -1,0 +1,15 @@
+{
+  "name": "Demanda Inducida 3280 - Hospital San Antonio",
+  "short_name": "Demanda 3280",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#1e1b4b",
+  "theme_color": "#1e1b4b",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3063/3063176.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
